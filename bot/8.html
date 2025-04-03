@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bumblebee - 이미지 설명 및 대화</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+      /* CSS (토스 스타일 + 반응형) */
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Noto Sans KR', sans-serif; margin: 0; background-color: #f5f5f5; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 20px auto; padding: 24px; background-color: #fff; border-radius: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08); }
+        header { text-align: center; margin-bottom: 32px; }
+        h1 { display: flex; align-items: center; justify-content: center; font-size: 2.2em; margin-bottom: 8px; color: #4285f4; font-weight: 700; }
+        .logo { font-size: 2em; margin-right: 0.2em; }
+        header p { font-size: 1em; color: #555; }
+
+        /* 웹캠 섹션 */
+        #webcam-section { display: flex; justify-content: center; margin-bottom: 24px; position: relative; }
+        #webcam-feed { max-width: 100%; border-radius: 16px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); }
+
+        /* 로딩 오버레이 */
+        .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center; border-radius: 16px; z-index: 10; display: none; }
+        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4285f4; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 버튼 */
+        #capture-button {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background-color: #4285f4;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 1.1em;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px; /* 버튼 아래 간격 */
+        }
+        #capture-button:hover { background-color: #3367d6; }
+
+        /* 입력 섹션 추가 */
+        #input-section {
+            margin-bottom: 24px;
+        }
+        #prompt-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-bottom: 12px;
+            display: none; /* Initially hide the prompt input */
+        }
+        #submit-prompt-button{
+          display: none; /* Initially hide the submit button */
+          width: 100%;
+          padding: 16px;
+          background-color: #4285f4;
+          color: #fff;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+          font-size: 1.1em;
+          font-weight: 600;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+          margin-bottom: 24px;
+        }
+        #submit-prompt-button:hover { background-color: #3367d6; }
+
+        /* 음성 입력 버튼 */
+        #voice-input-button {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background-color: #28a745; /* Green color */
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 1.1em;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+        #voice-input-button:hover { background-color: #218838; }
+
+
+        /* 대화 기록 */
+        #conversation-history {
+          margin-top: 20px;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          background-color: #f9f9f9;
+          max-height: 300px;
+          overflow-y: auto;
+        }
+        .user-message { color: #0366d6; margin-bottom: 5px; }
+        .bot-message { color: #333; margin-bottom: 10px;}
+
+
+        /* 응답 섹션 */
+        #output-section { margin-top: 32px; }
+        h2 { font-size: 1.6em; margin-bottom: 12px; color: #444; font-weight: 600; }
+        #response-text { padding: 16px; background-color: #f9f9f9; border: 1px solid #eee; border-radius: 12px; min-height: 120px; white-space: pre-wrap; line-height: 1.5; }
+        #audio-player {
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .container { margin: 10px; padding: 15px; border-radius: 15px; }
+            h1 { font-size: 1.8em; }
+            .logo { width: 32px; }
+            #webcam-feed { border-radius: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span class="logo">🦮</span> Bumblebee</h1>
+            <p>이미지 설명 및 대화</p>
+        </header>
+
+        <main>
+            <!-- 텍스트 프롬프트 입력 섹션 -->
+            <section id="input-section">
+                <textarea id="prompt-input" placeholder="프롬프트를 입력하세요..."></textarea>
+                <button id="submit-prompt-button">프롬프트 제출</button>
+            </section>
+
+            <!-- 음성 입력 버튼 -->
+            <button id="voice-input-button">음성 입력 시작/중지</button>
+
+            <section id="webcam-section">
+                <div class="loading-overlay">
+                    <div class="loading-spinner"></div>
+                </div>
+                <video id="webcam-feed" autoplay playsinline></video>
+            </section>
+
+            <button id="capture-button">사진 캡처 및 분석</button>
+
+            <section id="output-section">
+                <h2>응답:</h2>
+                <div id="response-text"></div>
+                 <audio id="audio-player" controls></audio>
+            </section>
+
+            <!-- 대화 기록 표시 -->
+            <section id="conversation-history">
+              <h2>대화 기록</h2>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2024 Bumblebee Project</p>
+        </footer>
+    </div>
+
+    <script>
+      const webcamFeed = document.getElementById('webcam-feed');
+      const captureButton = document.getElementById('capture-button');
+      const responseText = document.getElementById('response-text');
+      const loadingOverlay = document.querySelector('.loading-overlay');
+      const audioPlayer = document.getElementById('audio-player');
+      const promptInput = document.getElementById('prompt-input');
+      const submitPromptButton = document.getElementById('submit-prompt-button');
+      const conversationHistory = document.getElementById('conversation-history');
+      const voiceInputButton = document.getElementById('voice-input-button'); // 음성 입력 버튼
+
+      let recognition; // SpeechRecognition 객체
+      let isRecognizing = false; // 음성 인식 중인지 여부
+
+        // SpeechRecognition 초기화
+        function initSpeechRecognition() {
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!window.SpeechRecognition) {
+                alert("브라우저가 음성 인식을 지원하지 않습니다.");
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // 계속해서 음성 인식
+            recognition.interimResults = true; // 중간 결과도 반환
+            recognition.lang = 'ko-KR'; // 한국어 설정
+
+            recognition.onstart = () => {
+                isRecognizing = true;
+                voiceInputButton.textContent = "음성 입력 중지";
+                voiceInputButton.style.backgroundColor = "#dc3545"; // Red color
+            };
+
+            recognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                        // 최종 결과가 나오면 promptInput에 추가하고, sendData 호출
+                        promptInput.value = finalTranscript.trim();
+                        sendData(null, finalTranscript.trim());
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+              //  promptInput.value = finalTranscript + interimTranscript; //최종+ 중간결과
+            };
+
+            recognition.onend = () => {
+                isRecognizing = false;
+                voiceInputButton.textContent = "음성 입력 시작/중지";
+                voiceInputButton.style.backgroundColor = "#28a745"; // Green color
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                alert("음성 인식 중 오류가 발생했습니다: " + event.error);
+            };
+        }
+
+
+      // 웹캠 시작
+      async function startWebcam() {
+          try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+              webcamFeed.srcObject = stream;
+          } catch (error) {
+              console.error("Error accessing webcam:", error);
+              displayError("Webcam access error: " + error.message);
+          }
+      }
+
+        // 이미지 캡처 및 데이터 전송 (웹캠)
+        async function captureAndSendData() {
+          const canvas = document.createElement('canvas');
+          canvas.width = webcamFeed.videoWidth;
+          canvas.height = webcamFeed.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(webcamFeed, 0, 0, canvas.width, canvas.height);
+          const imageData = canvas.toDataURL('image/jpeg'); // Data URL 형식
+          sendData(imageData, "이 이미지를 설명해줘"); // 기본 프롬프트
+        }
+
+      // 텍스트 프롬프트와 함께 데이터 전송
+      async function sendPromptData() {
+        const prompt = promptInput.value;
+        if (!prompt) {
+            alert("프롬프트를 입력해주세요.");
+            return;
+        }
+        sendData(null, prompt); // 이미지는 없음
+      }
+
+      // 데이터 전송 함수 (이미지와 프롬프트 모두 처리)
+      async function sendData(imageData, prompt) {
+        showLoading();
+        try {
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt: prompt, image: imageData }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `HTTP error ${response.status}`);
+          }
+
+          const data = await response.json();
+
+
+          if (data.error) {
+            displayError(data.error);
+          } else {
+            displayResponse(data.response, data.tts_url, prompt); // prompt 추가
+            addToConversationHistory("user", prompt); // 사용자 메시지 기록
+            addToConversationHistory("bot", data.response); // 봇 응답 기록
+          }
+
+        } catch (error) {
+          console.error("Error:", error);
+          displayError(error.message);
+        } finally {
+          hideLoading();
+        }
+      }
+
+
+      // 대화 기록에 메시지 추가
+      function addToConversationHistory(sender, message) {
+          const messageDiv = document.createElement('div');
+          messageDiv.classList.add(sender === "user" ? "user-message" : "bot-message");
+          messageDiv.textContent = `${sender === "user" ? "User" : "Bot"}: ${message}`;
+          conversationHistory.appendChild(messageDiv);
+          conversationHistory.scrollTop = conversationHistory.scrollHeight; // 스크롤 맨 아래로
+      }
+
+      // 응답 표시 (텍스트 + 오디오)
+      function displayResponse(text, ttsUrl) {
+        responseText.innerText = text;  // 텍스트 응답 표시
+        if (ttsUrl) {
+          audioPlayer.src = ttsUrl;
+          audioPlayer.style.display = 'block';
+          audioPlayer.play().catch(e => console.error("Audio play failed:", e));
+        } else {
+          audioPlayer.style.display = 'none';
+        }
+      }
+
+
+
+      // 오류 표시
+      function displayError(message) {
+          responseText.innerText = "Error: " + message;
+          audioPlayer.style.display = 'none'; // 오류 시 오디오 플레이어 숨김
+      }
+
+      // 로딩 표시
+      function showLoading() {
+          loadingOverlay.style.display = 'flex';
+      }
+
+      // 로딩 숨기기
+      function hideLoading() {
+          loadingOverlay.style.display = 'none';
+      }
+
+
+
+      // 이벤트 리스너
+      document.addEventListener('DOMContentLoaded', () => {
+          startWebcam();
+          initSpeechRecognition(); // 음성 인식 초기화
+          captureButton.addEventListener('click', captureAndSendData);
+          submitPromptButton.addEventListener('click', sendPromptData); // 프롬프트 제출 버튼
+
+          // 음성 입력 버튼 이벤트 리스너
+          voiceInputButton.addEventListener('click', () => {
+              if (isRecognizing) {
+                  recognition.stop();
+              } else {
+                  recognition.start();
+              }
+          });
+      });
+
+    </script>
+</body>
+</html>
