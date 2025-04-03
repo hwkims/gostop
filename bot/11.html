@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 젯봇 제어</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E🤖%3C/text%3E%3C/svg%3E">
+    <style>
+
+         * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #e0eafc, #cfdef3);
+            color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 30px;
+        }
+        h1 {
+            font-size: 38px;
+            font-weight: 800;
+            color: #1a1a1a;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            animation: fadeIn 1s ease-in-out;
+        }
+        #webcam-feed {
+            width: 100%;
+            max-width: 680px;
+            height: auto;
+            border-radius: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.3s ease;
+        }
+        #webcam-feed:hover { transform: scale(1.02); }
+        .controls {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 680px;
+        }
+        button {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(200, 200, 255, 0.7));
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(12px);
+            border-radius: 15px;
+            padding: 14px;
+            color: #1a1a1a;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        button:hover:not(:disabled) {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(220, 220, 255, 0.9));
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+        }
+        button:disabled::after { content: " 처리 중..."; font-size: 12px; }
+        .custom-command-group {
+            margin-top: 25px;
+            width: 100%;
+            max-width: 680px;
+            display: flex;
+            gap: 12px;
+            animation: slideUp 0.5s ease-in-out;
+        }
+        #custom-command-input {
+            flex: 1;
+            padding: 14px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(12px);
+            color: #1a1a1a;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        #custom-command-input:focus {
+            background: rgba(255, 255, 255, 0.35);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        #response-text {
+            margin-top: 25px;
+            width: 100%;
+            max-width: 680px;
+            padding: 20px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #1a1a1a;
+            font-size: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        #tts-player {
+            width: 100%;
+            max-width: 680px;
+            margin-top: 15px;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @media (max-width: 680px) {
+            .controls { grid-template-columns: repeat(2, 1fr); }
+            h1 { font-size: 28px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 젯봇 제어</h1>
+    <img id="webcam-feed" src="" alt="JetBot Webcam Feed">  <!-- Remove initial src -->
+    <div class="controls">
+        <button id="describe-button">👀 설명</button>
+        <button id="navigate-forward-button">🚀 전진</button>
+        <button id="navigate-backward-button">⏪ 후진</button>
+        <button id="navigate-left-button">⬅️ 좌회전</button>
+        <button id="navigate-right-button">➡️ 우회전</button>
+        <button id="stop-button">🛑 정지</button>
+        <button id="dance-button">💃 춤추기</button>
+        <button id="voice-button">🎙️ 음성 입력</button>
+    </div>
+    <div class="custom-command-group">
+        <input type="text" id="custom-command-input" placeholder="젯봇에게 명령하세요!">
+        <button id="custom-command-button">🚀 실행</button>
+    </div>
+    <div id="response-text">젯봇 준비 완료!</div>
+    <audio id="tts-player" controls autoplay></audio>
+    <audio id="ding-player" src="/static/ding.mp3" preload="auto"></audio>
+
+    <script>
+        const webcamFeed = document.getElementById('webcam-feed');
+        const responseText = document.getElementById('response-text');
+        const ttsPlayer = document.getElementById('tts-player');
+        const dingPlayer = document.getElementById('ding-player');
+        const buttons = document.querySelectorAll('button');
+        let isProcessing = false;
+        let initialImageReceived = false; // Flag for initial image
+
+        function setButtonsDisabled(disabled) {
+            buttons.forEach(btn => btn.disabled = disabled);
+            isProcessing = disabled;
+        }
+
+      async function sendData(prompt, action = "navigate", direction_hint = null, speed = null, duration = null, angle = null) {
+        if (isProcessing) return;
+        setButtonsDisabled(true);
+        responseText.textContent = "젯봇이 움직이는 중...";
+        dingPlayer.play().catch(e => console.error("Ding play error:", e));
+
+        const bodyData = {
+            prompt: prompt,
+            image: webcamFeed.src.includes("base64") ? webcamFeed.src : null,
+            action: action,
+            direction_hint: direction_hint,
+            speed: speed,
+            duration: duration,
+            angle: angle
+        };
+
+        try {
+            const response = await fetch("/api/generate", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyData)
+            });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+
+            responseText.textContent = data.response || "젯봇이 임무를 완료했어요!";
+            if (data.image) {
+                webcamFeed.src = data.image;
+            } else {
+                console.warn("No image received from server.");
+            }
+            if (data.audio) {
+                ttsPlayer.src = data.audio;
+                ttsPlayer.play().catch(e => {
+                    console.error("TTS play error:", e);
+                    responseText.textContent = "젯봇의 목소리를 들을 수 없어요!";
+                });
+            } else {
+                console.warn("No TTS audio received.");
+                responseText.textContent = "젯봇이 말을 잃었어요!"; // Better message
+            }
+        } catch (error) {
+            responseText.textContent = `젯봇이 오류를 만났어요: ${error.message}`;
+            console.error("Request error:", error);
+        } finally {
+            setButtonsDisabled(false);
+        }
+    }
+
+
+        // 음성 입력 처리 (No changes needed here)
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'ko-KR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        document.getElementById('voice-button').addEventListener('click', () => {
+            recognition.start();
+            responseText.textContent = "젯봇이 듣고 있어요...";
+        });
+
+        recognition.onresult = (event) => {
+            const command = event.results[0][0].transcript;
+            responseText.textContent = `젯봇이 들었어요: ${command}`;
+            sendData(`젯봇, ${command}!`, "custom");
+        };
+
+        recognition.onerror = (event) => {
+            responseText.textContent = `음성 인식 오류: ${event.error}`;
+            console.error("Speech recognition error:", event.error);
+        };
+
+        recognition.onend = () => {
+            if (!isProcessing) responseText.textContent = "젯봇 준비 완료!";
+        };
+
+        // Button event listeners (No changes needed here)
+        document.getElementById('describe-button').addEventListener('click', () => sendData("젯봇, 주변을 설명해줘!", "describe"));
+        document.getElementById('navigate-forward-button').addEventListener('click', () => sendData("젯봇, 앞으로 가!", "navigate", "forward_medium"));
+        document.getElementById('navigate-backward-button').addEventListener('click', () => sendData("젯봇, 뒤로 가!", "navigate", "backward_medium"));
+        document.getElementById('navigate-left-button').addEventListener('click', () => sendData("젯봇, 왼쪽으로 가!", "navigate", "left_medium"));
+        document.getElementById('navigate-right-button').addEventListener('click', () => sendData("젯봇, 오른쪽으로 가!", "navigate", "right_medium"));
+        document.getElementById('stop-button').addEventListener('click', () => sendData("젯봇, 멈춰!", "navigate", "stop"));
+        document.getElementById('dance-button').addEventListener('click', () => sendData("젯봇, 춤춰!", "navigate", "dance"));
+        document.getElementById('custom-command-button').addEventListener('click', () => {
+            const command = document.getElementById('custom-command-input').value.trim();
+            if (command) sendData(`젯봇, ${command}!`, "custom");
+        });
+
+    </script>
+</body>
+</html>
