@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bumblebee - 시각 장애인 안내견 로봇</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS (애플 스타일 + 반응형) */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            background-color: #f7f7f7;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #007aff; /* Apple Blue */
+        }
+        .logo {
+            width: 50px; /* Adjust as needed */
+            height: auto;
+            margin-right: 15px;
+
+        }
+
+        header p {
+            font-size: 1.1em;
+            color: #666;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500; /* Medium */
+        }
+
+        .custom-file-upload {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 15px;
+            background-color: #007aff;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-weight: 500;
+        }
+
+        .custom-file-upload img{
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+        }
+
+        .custom-file-upload:hover {
+            background-color: #0056b3;
+        }
+
+        #image-upload {
+            display: none; /* Hide the actual file input */
+        }
+         #image-preview-container{
+            display: flex;
+            justify-content: center;
+        }
+
+        #image-preview {
+            max-width: 100%;
+            max-height: 300px; /* Limit preview height */
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            display: none;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            resize: vertical; /* Allow vertical resizing */
+            font-size: 1em;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        textarea::placeholder {
+             color: #aaa;
+        }
+
+        #submit-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50; /* Green */
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 1.1em;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+        }
+
+        #submit-button:hover {
+            background-color: #388e3c;
+        }
+         .button-text {
+            margin-right: 8px; /* Space for the spinner */
+        }
+        .loading-spinner {
+            border: 2px solid #f3f3f3; /* Light grey */
+            border-top: 2px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #output-section {
+            margin-top: 30px;
+        }
+
+        h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        #response-text {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            min-height: 100px;
+            white-space: pre-wrap; /* Preserve whitespace and line breaks */
+        }
+
+        #tts-button {
+            display: block;
+            margin-top: 15px;
+            padding: 10px 15px;
+            background-color: #007aff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 1em;
+        }
+
+        #tts-button:hover {
+            background-color: #0056b3;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #888;
+        }
+        /* 반응형 */
+        @media (max-width: 768px){
+            .container{
+                margin: 10px;
+                padding: 10px;
+            }
+            h1{
+                font-size: 2em;
+            }
+            .custom-file-upload{
+                padding: 8px 12px
+            }
+            #image-preview{
+                max-height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><img src="bumblebee_logo.png" alt="Bumblebee Logo" class="logo"> Bumblebee</h1>
+            <p>시각 장애인을 위한 스마트 안내견 로봇</p>
+        </header>
+
+        <main>
+            <section id="input-section">
+                <div class="input-group">
+                    <label for="image-upload" class="custom-file-upload">
+                        <img src="camera_icon.svg" alt="Upload Image"> 이미지 업로드
+                    </label>
+                    <input type="file" id="image-upload" accept="image/*">
+                    <div id="image-preview-container">
+                         <img id="image-preview" src="" alt="Image Preview">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="text-input">명령/질문:</label>
+                    <textarea id="text-input" placeholder="여기에 질문을 입력하세요..."></textarea>
+                </div>
+               <button id="submit-button">
+                    <span class="button-text">분석 요청</span>
+                    <span class="loading-spinner" style="display: none;"></span>
+                </button>
+            </section>
+
+            <section id="output-section">
+                <h2>응답:</h2>
+                <div id="response-text"></div>
+                <button id="tts-button" style="display: none;">음성으로 듣기</button>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2024 Bumblebee Project</p>
+        </footer>
+    </div>
+
+    <script>
+        // JavaScript (이미지 업로드, AJAX 요청, WebSocket 통신, TTS)
+
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
+        const textInput = document.getElementById('text-input');
+        const submitButton = document.getElementById('submit-button');
+        const responseText = document.getElementById('response-text');
+        const ttsButton = document.getElementById('tts-button');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+
+        let ws;  // WebSocket 전역 변수
+        let base64Image = ''; //이미지 저장 변수
+
+        // WebSocket 연결 함수
+        function connectWebSocket() {
+            ws = new WebSocket("ws://localhost:8000/ws");
+
+            ws.onopen = () => {
+                console.log("WebSocket connected");
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.error) {
+                    displayError(data.error);
+                    resetUI();
+                } else {
+                    displayResponse(data.text);
+                    // "json_data" 키가 있을 경우, 콘솔에 로깅
+                    if (data.json_data) {
+                        console.log("Received JSON data:", data.json_data);
+                    }
+                }
+
+                hideLoading(); // Ensure loading spinner is always hidden after response.
+            };
+
+            ws.onclose = () => {
+                console.log("WebSocket disconnected");
+                // 연결 종료 시 재연결 시도 (선택 사항)
+                // setTimeout(connectWebSocket, 5000); // 5초 후 재연결
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket error:", error);
+                displayError("WebSocket 연결 오류"); //UI에 에러 표시
+            };
+        }
+
+        // 페이지 로드 시 WebSocket 연결
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            imageUpload.addEventListener('change', handleImageUpload); //이미지 업로드
+            submitButton.addEventListener('click', sendData); // 데이터 보내기
+            ttsButton.addEventListener('click', playTTS); //TTS 재생
+        });
+
+        // 이미지 업로드 핸들러
+        async function handleImageUpload() {
+            const file = imageUpload.files[0];
+            if (!file) return;
+
+            try{
+                base64Image = await convertImageToBase64(file); //base64 전역변수에 저장.
+                imagePreview.src = base64Image;
+                imagePreview.style.display = 'block';
+                imagePreviewContainer.style.display = 'flex';
+            } catch (error){
+                console.error("Error converting image to base64:", error);
+                displayError("이미지 변환 오류");
+            }
+        }
+
+        function convertImageToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file); //Base64 형식으로 읽음
+            });
+        }
+        // 데이터 전송 (WebSocket 사용)
+        function sendData() {
+            const text = textInput.value;
+            if (!text && !base64Image) {
+                displayError("텍스트 또는 이미지를 입력해주세요.");
+                return;
+            }
+
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                displayError("WebSocket 연결이 끊어졌습니다. 다시 연결 중...");
+                connectWebSocket(); //재연결
+                return;
+            }
+            showLoading();
+            // WebSocket으로 데이터 전송
+            ws.send(JSON.stringify({ text: text, image: base64Image }));
+            //imageUpload.value = ''; //이미지 초기화
+            //imagePreview.src = '';
+            //imagePreview.style.display = 'none';
+
+
+        }
+
+        // TTS 재생
+        async function playTTS() {
+            const text = responseText.innerText;
+            if (!text) return;
+
+            try {
+                const response = await fetch("/tts_stream", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: text }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || "TTS 변환 실패");
+                }
+
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audio.play();
+
+            } catch (error) {
+                console.error("TTS Error:", error);
+                displayError(error.message || "TTS 재생 오류");
+            }
+        }
+
+        // 응답 표시
+        function displayResponse(text) {
+            responseText.innerText = text;
+            ttsButton.style.display = 'block'; // TTS 버튼 표시
+        }
+
+        // 오류 표시
+        function displayError(message) {
+            responseText.innerText = "오류: " + message;
+            ttsButton.style.display = 'none'; // TTS 버튼 숨기기
+        }
+
+        // 로딩 상태 표시
+        function showLoading() {
+            submitButton.disabled = true;
+            submitButton.querySelector('.button-text').style.display = 'none';
+             submitButton.querySelector('.loading-spinner').style.display = 'inline-block';
+        }
+
+        // 로딩 상태 숨기기, 버튼 복구
+        function hideLoading() {
+            submitButton.disabled = false;
+            submitButton.querySelector('.button-text').style.display = 'inline-block';
+            submitButton.querySelector('.loading-spinner').style.display = 'none';
+        }
+
+        //UI 초기화
+        function resetUI(){
+            hideLoading();
+            imageUpload.value = '';
+            imagePreview.src = '';
+            imagePreview.style.display = 'none';
+            imagePreviewContainer.style.display = 'none';
+        }
+
+        // 이미지, 로고 가져오기 (에러 방지)
+        function getMedia(name){
+            try{
+                if(name == "camera"){
+                     return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z'%3E%3C/path%3E%3Ccircle cx='12' cy='13' r='4'%3E%3C/circle%3E%3C/svg%3E"
+                } else if (name == "logo"){
+                    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAPYSURBVHgB7VdrbBRVGP7OzOzsbMs2a1qppGkLQ4qVIOjRRxEPIg6iIqgiQqFQKNQqiFQUfFD0UYhfVBA9lEQFGxUVPbSEgiAIihaiIMaghCS1P2Zm9nZnZ3a2zbyb/XvL/s/+bN9k5s2bN2/m90BERERERERERET+h/oM5sAt4HLgP7AKaA8cBeYC3wPPAfOA18DpwJ7AWqB04AFwJHAQ6jOO/QDDwNfAN8A7wBnATmAN8B5wZez8GTgY+AH4J33+T+YARwOQ3WJ8R0tFHRrw9n+4/xVfD4z4L+O27s/+8J0VvAoc5wM/+50S0uW/Yv6/8F6o3gNOA3+96v20HkE9qf+kQvwU+Bj/z1/i17L4JbQ8lW8Br4DHABV0e40/w1F+t0D/4Ymv9XgB3AL8D6wMvNz/0JvghsD1hQ5w2kQx0L0M7qA6m/y3Wn+o2N93gL8C3gc+CdwD7AZ+J8L/wPuA98Bf6q/XgJ8AlwPabY8z8N/gKeAw4Zf2fA48CO5r+7O3v8Rlw3eY7Bf4IeA/wO5g+G/qf/tQ9D/4CfAq8CjwNfA/9fAPwKeBL4nPfD9H6gX1z3eAfwUeAq4BPhV9w7+E5jj8D3gUeBz4F+FB/5W/A94G7gDPAm0yN/G2m8f3Nf3pX+z8C7z+R8G3gaOBRYY44W4Fp+vAfuB94D7gF+Bw+gX+u/G9Af/2Y1/s7gXv7+X/A91u7v6gB/qj1r/Y3AM8CJwPfAm5t1H6h/P9Gwb8DvgU8CrzNDf5qPgbd/v3P+r9E0iH86mP8NHA/8HrgJeB/5uB4Q+1pT/m8D3gQ+BPwE+F3/N33g13tV8w/1z4DPgH8F+p3vBf4nAn/N+AfcBfww+5eAdwF9tGv/j8CXzSH4vwn8e+r9d/4U+Al4FLgO2Cm5uQJ8A3gKGBV68+j6tU+C+p1w+G7gTeBvQJx/b1wAvAs8BvwTuBP4V4HrgW0B+7PzzdwFPgZ8ADwLnA59u6f4f8J8L8F3gFuBM/Q/QZ4GjjZ2f8/AP8Evm8G/jU6/p/Al8BtwJ8H6gEv7/9T/9t4PPg94B/f/xV/64G3gP82x+46wH+h/8fB94G+v4nwD8C/99n/Dnw+sC/vP848CHQJz//6D/vP8L8D7g/7j/4G+8BwP+vgb94G+X4wN/r+GjERERERERERERH4v/gVlWWx0w6z4nAAAAABJRU5ErkJggg=="
+                }
+            }catch(err){
+                console.error("Failed to get media", err)
+                return ""; // Return empty string on failure
+
+            }
+        }
+    </script>
+</body>
+</html>
