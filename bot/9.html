@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 JetBot 제어 센터</title>
+    <style>
+     /* Reset and Basic Styling */
+        body {
+            font-family: 'Arial', sans-serif; /* Modern, clean font */
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5; /* Light gray background */
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #1877f2; /* Facebook blue */
+            margin-top: 30px;
+            margin-bottom: 20px;
+            font-size: 2.5em; /* Larger font size */
+        }
+
+        /* Webcam Feed Container */
+        #webcam-container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            border-radius: 20px; /* More rounded corners */
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Stronger shadow */
+            margin-bottom: 20px; /* Added margin */
+        }
+
+        #webcam-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+      /* Button Container */
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+            max-width: 800px; /* Added max-width */
+            padding: 0 20px; /* Added horizontal padding */
+            box-sizing: border-box; /* Include padding in width */
+
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Responsive grid */
+            gap: 10px;
+            width: 100%;
+            max-width: 600px; /* Max width for the grid */
+            margin-bottom: 20px;
+        }
+
+
+        button, .custom-command-group button {
+            background-color: #1877f2; /* Facebook blue */
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 30px; /* Fully rounded corners */
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease; /* Added transform transition */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin: 5px;
+            /* For grid layout */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+
+
+        }
+        button:hover, .custom-command-group button:hover {
+            background-color: #0d65d9; /* Darker blue */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        /* Custom Command Input */
+        .custom-command-group {
+            display: flex;
+            width: 100%;  /* Full width */
+            gap: 10px;
+            margin-bottom: 20px; /* Spacing below */
+            justify-content: center; /* Center items */
+
+        }
+
+        .custom-command-group input[type="text"] {
+            flex-grow: 1; /* Take up available space */
+            padding: 15px;
+            border-radius: 30px;
+            border: 2px solid #ddd;
+            font-size: 1em;
+             box-sizing: border-box; /* Include padding and border in element's width */
+
+        }
+
+        /* Response Area */
+        #response-container {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+              padding: 0 20px; /* Added horizontal padding */
+            box-sizing: border-box;
+        }
+
+        #response-text {
+            background-color: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            min-height: 100px;
+            overflow-x: auto;
+            margin-bottom: 20px;
+             text-align: left; /* Left-align text */
+
+        }
+
+        /* Audio Player */
+        #audio-player {
+            width: 100%;
+            margin-top: 15px;
+        }
+
+    </style>
+</head>
+<body>
+    <h1>🤖 JetBot 제어 센터</h1>
+
+    <div id="webcam-container">
+        <img id="webcam-feed" src="http://192.168.137.233:8000/webcam" alt="JetBot Webcam Feed">
+    </div>
+
+    <div class="button-container">
+       <div class="button-grid">
+            <button id="describe-button">👀 주변 설명</button>
+            <button id="navigate-forward-button">🚀 전진</button>
+            <button id="navigate-backward-button">⏪ 후진</button>
+            <button id="navigate-left-button">⬅️ 좌회전</button>
+            <button id="navigate-right-button">➡️ 우회전</button>
+            <button id="stop-button">🛑 정지</button>
+            <button id="avoid-obstacle-button">🚧 장애물 회피</button>
+            <button id="rotate-clockwise-button">🔄 시계 방향 회전</button>
+            <button id="rotate-counterclockwise-button">↩️ 반시계 방향 회전</button>
+            <button id="move-forward-slow-button">🐢 천천히 전진</button>
+            <button id="move-backward-slow-button">🐌 천천히 후진</button>
+            <button id="random-action-button">🎲 랜덤 액션</button>
+        </div>
+
+        <div class="custom-command-group">
+            <input type="text" id="custom-command-input" placeholder="✨ 사용자 지정 명령을 입력하세요">
+            <button id="custom-command-button">🚀 실행</button>
+        </div>
+    </div>
+
+    <div id="response-container">
+        <div id="response-text"></div>
+        <audio id="audio-player" controls style="display: none;"></audio>
+    </div>
+
+    <script>
+        const webcamFeed = document.getElementById('webcam-feed');
+        const describeButton = document.getElementById('describe-button');
+        const navigateForwardButton = document.getElementById('navigate-forward-button');
+        const navigateBackwardButton = document.getElementById('navigate-backward-button');
+        const navigateLeftButton = document.getElementById('navigate-left-button');
+        const navigateRightButton = document.getElementById('navigate-right-button');
+        const stopButton = document.getElementById('stop-button');
+        const avoidObstacleButton = document.getElementById('avoid-obstacle-button');
+        const customCommandButton = document.getElementById('custom-command-button')
+        const customCommandInput = document.getElementById('custom-command-input');
+        const rotateClockwiseButton = document.getElementById('rotate-clockwise-button');
+        const rotateCounterclockwiseButton = document.getElementById('rotate-counterclockwise-button');
+        const moveForwardSlowButton = document.getElementById('move-forward-slow-button');
+        const moveBackwardSlowButton = document.getElementById('move-backward-slow-button');
+        const randomActionButton = document.getElementById('random-action-button');
+        const responseText = document.getElementById('response-text');
+        const audioPlayer = document.getElementById('audio-player');
+
+
+        let websocket;
+
+        // 웹소켓 연결
+        function connectWebSocket() {
+            websocket = new WebSocket("ws://192.168.137.233:8766");
+
+            websocket.onopen = () => {
+                console.log("WebSocket connected");
+            };
+
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.image) {
+                    webcamFeed.src = "data:image/jpeg;base64," + data.image;
+                }
+            };
+
+            websocket.onclose = () => {
+                console.log("WebSocket closed");
+            };
+
+            websocket.onerror = (error) => {
+                console.error("WebSocket error:", error);
+            };
+        }
+
+        // FastAPI 호출
+        async function sendData(prompt, action = "navigate", direction_hint = null) {
+            const imageData = webcamFeed.src;
+
+            try {
+                const response = await fetch("http://localhost:8000/api/generate", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        image: imageData,
+                        action: action,
+                        direction_hint: direction_hint
+                    })
+                });
+
+                const data = await response.json();
+
+                // 응답 텍스트 표시
+                responseText.textContent = data.response;
+
+                // 오디오 재생
+                if (data.audio) {
+                    const audioData = `data:audio/wav;base64,${data.audio}`;
+                    audioPlayer.src = audioData;
+                    audioPlayer.style.display = 'block';
+                    audioPlayer.play().catch(e => console.error("Playback failed:", e));
+                }
+
+            } catch (error) {
+                console.error("Error:", error);
+                responseText.textContent = "오류 발생: " + error;
+            }
+        }
+
+      // 이벤트 리스너
+        describeButton.addEventListener('click', () => {
+            sendData("이미지에 보이는 것을 줄바꿈 없이 한 문장으로 설명해줘.", "describe");
+        });
+
+        navigateForwardButton.addEventListener('click', () => {
+            sendData("앞으로", "navigate", "forward");
+        });
+
+        navigateBackwardButton.addEventListener('click', () => {
+            sendData("뒤로", "navigate", "backward");
+        });
+
+        navigateLeftButton.addEventListener('click', () => {
+            sendData("왼쪽", "navigate", "left");
+        });
+
+        navigateRightButton.addEventListener('click', () => {
+            sendData("오른쪽", "navigate", "right");
+        });
+
+        stopButton.addEventListener('click', () => {
+            sendData("정지", "navigate", "stop");
+        });
+
+        avoidObstacleButton.addEventListener('click', () => {
+            sendData("장애물을 피해서 이동해줘.", "navigate", "avoid");
+        });
+
+        customCommandButton.addEventListener('click', () => {
+            const command = customCommandInput.value;
+            if(command.trim() !== "") {
+                sendData(command, "custom");
+            } else {
+              alert("명령을 입력해주세요.")
+            }
+        });
+
+        rotateClockwiseButton.addEventListener('click', () => {
+            sendData("시계 방향으로 90도 회전해줘.", "navigate", "rotate_clockwise");
+        });
+
+        rotateCounterclockwiseButton.addEventListener('click', () => {
+            sendData("반시계 방향으로 90도 회전해줘.", "navigate", "rotate_counterclockwise");
+        });
+
+        moveForwardSlowButton.addEventListener('click', () => {
+            sendData("천천히 앞으로 이동해줘.", "navigate", "forward_slow");
+        });
+
+        moveBackwardSlowButton.addEventListener('click', () => {
+            sendData("천천히 뒤로 이동해줘.", "navigate", "backward_slow");
+        });
+
+        randomActionButton.addEventListener('click', () => {
+            sendData("로봇에게 랜덤한 동작을 시켜줘.", "navigate", "random");
+        });
+
+        // 페이지 로드 시 웹소켓 연결
+        document.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
