@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
+    <style>
+        /* Apple-inspired Styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7; /* Light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 95%;
+            max-width: 650px; /* Increased max-width */
+            background-color: white;
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+            padding: 25px 30px; /* Increased padding */
+            box-sizing: border-box;
+            overflow: hidden; /* Prevent content overflow */
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #2e2e2e; /* Darker text color */
+            font-size: 28px; /* Larger font size */
+            font-weight: 600; /* Semibold */
+        }
+
+        #chatbox {
+            height: 450px; /* Increased height */
+            border: 1px solid #e0e0e0; /* Lighter border */
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 10px;
+            background-color: #fafafa; /* Very light gray */
+        }
+
+        .message {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            max-width: 75%; /* Adjusted max-width */
+            word-wrap: break-word;
+            font-size: 15px; /* Slightly larger font */
+            line-height: 1.4; /* Improved line height */
+        }
+
+        .user {
+            background-color: #007aff; /* Apple blue */
+            color: white;
+            text-align: right;
+            margin-left: auto;
+            border-top-left-radius: 20px;  /*  Rounded corners */
+			border-bottom-left-radius: 20px;
+        }
+
+        .assistant {
+            background-color: #e5e5ea; /* Light gray */
+            color: #2e2e2e;
+            text-align: left;
+            margin-right: auto;
+            border-top-right-radius: 20px; /* Rounded corners */
+			border-bottom-right-radius: 20px;
+        }
+
+        #input-area {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        #text-input {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 1px solid #d0d0d0; /* Lighter border */
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none; /* Remove outline */
+        }
+        #text-input:focus {
+          border-color: #007aff; /* Highlight on focus */
+          box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25);
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007aff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500; /* Semibold */
+            transition: background-color 0.2s ease; /* Smooth transition */
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+        #capture-button {
+          background-color: #4cd964; /*  green */
+        }
+
+        #capture-button:hover {
+          background-color: #34c759;
+        }
+
+        #json-output {
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            background-color: #fafafa;
+            white-space: pre-wrap;
+            font-family: Menlo, Monaco, Consolas, "Courier New", monospace; /* Apple's code font */
+            font-size: 13px; /* Smaller font size */
+            margin-top: 25px;
+            border-radius: 10px;
+            overflow-x: auto;
+            color: #444;
+            line-height: 1.5;
+        }
+
+
+        /* Initially hide webcam and canvas */
+        #webcam, #canvas {
+            display: none;
+        }
+
+        #image-preview {
+            display: none;
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+        #audio-player{
+          display: none;
+          margin-top: 10px;
+          width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Chatbot</h1>
+
+        <div id="chatbox"></div>
+
+        <div id="input-area">
+            <input type="text" id="text-input" placeholder="Type your message...">
+            <button id="send-button">Send</button>
+            <button id="capture-button">Capture</button>
+        </div>
+
+        <video id="webcam" width="640" height="480" autoplay></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+        <img id="image-preview" src="" alt="Captured Image">
+         <audio id="audio-player" controls></audio>
+        <h2>JSON Output</h2>
+        <div id="json-output"></div>
+    </div>
+
+    <script>
+      const chatbox = document.getElementById('chatbox');
+      const textInput = document.getElementById('text-input');
+      const sendButton = document.getElementById('send-button');
+      const captureButton = document.getElementById('capture-button');
+      const webcam = document.getElementById('webcam');
+      const canvas = document.getElementById('canvas');
+      const jsonOutput = document.getElementById('json-output');
+      const imagePreview = document.getElementById('image-preview');
+      const audioPlayer = document.getElementById('audio-player');
+
+
+      let ws;
+
+      function connectWebSocket() {
+          ws = new WebSocket("ws://localhost:8000/ws");
+
+          ws.onopen = () => {
+              console.log('WebSocket connected');
+          };
+
+          ws.onmessage = (event) => {
+              const data = JSON.parse(event.data);
+
+              if (data.error) {
+                  addMessage('assistant', 'Error: ' + data.error);
+              } else if (data.text) {
+                  addMessage('assistant', data.text);
+                  // Play TTS audio
+                  fetch('/tts_stream', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ text: data.text })
+                  })
+                      .then(response => response.blob())
+                      .then(blob => {
+                          const audioUrl = URL.createObjectURL(blob);
+                          audioPlayer.src = audioUrl;
+                          audioPlayer.style.display = 'block';
+                          audioPlayer.play();
+                      });
+
+                  // Display JSON data, formatted
+                  if (data.json_data) {
+                      jsonOutput.textContent = JSON.stringify(data.json_data, null, 2);  // Pretty print
+                  }
+              }
+          };
+
+          ws.onclose = () => {
+              console.log('WebSocket disconnected');
+               // Reconnect automatically after a delay
+              setTimeout(connectWebSocket, 5000); // 5 seconds
+          };
+          ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+      }
+
+      connectWebSocket();
+
+      function addMessage(role, content) {
+          const messageDiv = document.createElement('div');
+          messageDiv.classList.add('message', role);
+          messageDiv.textContent = content;
+          chatbox.appendChild(messageDiv);
+          chatbox.scrollTop = chatbox.scrollHeight; // Scroll to bottom
+      }
+
+
+      sendButton.addEventListener('click', () => {
+          const message = textInput.value.trim();
+          if (message) {
+              addMessage('user', message);
+              ws.send(JSON.stringify({ text: message }));
+              textInput.value = '';
+          }
+      });
+
+      textInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) { // Shift+Enter for newline
+            event.preventDefault(); // Prevent default behavior (newline)
+            sendButton.click();
+        }
+      });
+
+      captureButton.addEventListener('click', async () => {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcam.srcObject = stream;
+                webcam.style.display = 'block'; // Show the webcam
+                imagePreview.style.display = 'none';//hide prev
+
+                setTimeout(() => {
+                    canvas.getContext('2d').drawImage(webcam, 0, 0, canvas.width, canvas.height);
+                    const imageData = canvas.toDataURL('image/jpeg');
+                    imagePreview.src = imageData;
+                    imagePreview.style.display = 'block';
+
+                    ws.send(JSON.stringify({ image: imageData }));
+
+                    // Stop the stream and hide webcam after capture
+                    stream.getTracks().forEach(track => track.stop());
+                    webcam.style.display = 'none';
+
+
+                }, 2000); // 2 seconds delay
+
+
+            } catch (error) {
+              console.error('Error accessing webcam:', error);
+              alert('Could not access the webcam. Please ensure you have granted permission.');
+            }
+        } else {
+            alert('Your browser does not support webcam access.');
+        }
+    });
+
+    </script>
+</body>
+</html>
