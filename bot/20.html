@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Driver Control 🚗</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E🚗%3C/text%3E%3C/svg%3E">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(145deg, #1e1e2f, #2a2a4a);
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+        #webcam-feed {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            object-fit: cover;
+        }
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 640px;
+        }
+        .custom-command-group, .autonomous-controls {
+            margin-top: 15px;
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            gap: 10px;
+        }
+        button, #iterations-input {
+            background: rgba(60, 60, 100, 0.9);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            touch-action: manipulation; /* Improve touch response */
+        }
+        button:hover:not(:disabled) {
+            background: rgba(80, 80, 120, 1);
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #custom-command-input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            font-size: 14px;
+            outline: none;
+        }
+        #custom-command-input:focus {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        #response-text {
+            margin-top: 15px;
+            width: 100%;
+            max-width: 640px;
+            padding: 15px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            font-size: 14px;
+            overflow-wrap: break-word;
+            min-height: 60px;
+        }
+        #tts-player {
+            width: 100%;
+            max-width: 640px;
+            margin-top: 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            display: none;
+        }
+        #recording-indicator {
+            color: #ff4d4d;
+            margin-left: 5px;
+            font-size: 12px;
+            display: none;
+        }
+        #recording-indicator.active { display: inline; }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-connected { background-color: #4CAF50; }
+        .status-disconnected { background-color: #F44336; }
+        .status-processing { background-color: #FFC107; }
+        @media (max-width: 640px) {
+            .controls { grid-template-columns: repeat(2, 1fr); }
+            h1 { font-size: 28px; }
+            #webcam-feed { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Professional Driver Control 🚗</h1>
+    <img id="webcam-feed" src="/placeholder.svg" alt="Driver Webcam Feed">
+    <div class="controls">
+        <button id="navigate-forward-button">🚀 Forward</button>
+        <button id="navigate-backward-button">⏪ Backward</button>
+        <button id="navigate-left-button">⬅️ Left</button>
+        <button id="navigate-right-button">➡️ Right</button>
+        <button id="stop-button">🛑 Stop</button>
+        <button id="describe-button">👀 Describe</button>
+        <button id="voice-button">🎙️ Voice</button>
+        <button id="autonomous-button">🤖 Autonomous</button>
+    </div>
+    <div class="custom-command-group">
+        <input type="text" id="custom-command-input" placeholder="Command your Driver!">
+        <button id="custom-command-button">🚀 Execute</button>
+    </div>
+    <div id="response-text">Driver Ready! <span class="status-indicator status-disconnected"></span></div>
+    <audio id="tts-player" autoplay></audio>
+    <audio id="ding-player" src="/static/ding.mp3" preload="auto"></audio>
+    <span id="recording-indicator">🔴 Recording...</span>
+
+    <script>
+        const webcamFeed = document.getElementById('webcam-feed');
+        const responseText = document.getElementById('response-text');
+        const ttsPlayer = document.getElementById('tts-player');
+        const dingPlayer = document.getElementById('ding-player');
+        const autonomousButton = document.getElementById('autonomous-button');
+        const recordingIndicator = document.getElementById('recording-indicator');
+        const buttons = document.querySelectorAll('button');
+        let websocket = null;
+        let recognition = null;
+        let isProcessing = false;
+        let isAutonomousOn = false;
+        let lastImage = null;
+        let reconnectAttempts = 0;
+        let statusIndicator = document.querySelector('.status-indicator');
+        let lastCommandTime = 0;
+        const COMMAND_THROTTLE_TIME = 300; // ms
+
+        function setButtonsDisabled(disabled) {
+            buttons.forEach(btn => btn.disabled = disabled);
+            isProcessing = disabled;
+
+            if (disabled) {
+                statusIndicator.className = 'status-indicator status-processing';
+            } else {
+                statusIndicator.className = 'status-indicator status-connected';
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                statusIndicator.className = 'status-indicator status-connected';
+            } else {
+                statusIndicator.className = 'status-indicator status-disconnected';
+            }
+        }
+
+        function connectWebSocket() {
+            if (websocket && websocket.readyState === WebSocket.OPEN) {
+                return; // Already connected
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/client`;
+
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = () => {
+                console.log("WebSocket connected!");
+                setButtonsDisabled(false);
+                responseText.textContent = "Driver Ready! ";
+                responseText.appendChild(statusIndicator);
+                updateConnectionStatus(true);
+                reconnectAttempts = 0;
+            };
+
+            websocket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // Handle image updates efficiently
+                    if (data.image && data.image !== lastImage) {
+                        // Use createObjectURL for better performance with large images
+                        const blob = base64ToBlob(data.image, 'image/jpeg');
+                        const imageUrl = URL.createObjectURL(blob);
+
+                        // Only update the image source if it's different
+                        if (webcamFeed.src !== imageUrl) {
+                            // Revoke the old object URL to prevent memory leaks
+                            if (webcamFeed.src && webcamFeed.src.startsWith('blob:')) {
+                                URL.revokeObjectURL(webcamFeed.src);
+                            }
+                            webcamFeed.src = imageUrl;
+                        }
+                        lastImage = data.image;
+                    }
+
+                    if (!isAutonomousOn) {
+                        if (data.response) {
+                            responseText.textContent = data.response + ' ';
+                            responseText.appendChild(statusIndicator);
+                        }
+                        if (data.description) {
+                            responseText.textContent = data.description + ' ';
+                            responseText.appendChild(statusIndicator);
+                        }
+                    } else {
+                        // Show autonomous mode status
+                        if (data.driver_command) {
+                            const commands = Array.isArray(data.driver_command) ? data.driver_command : [data.driver_command];
+                            const lastCommand = commands[commands.length - 1];
+
+                            if (lastCommand === "u_turn") {
+                                responseText.textContent = "Performing U-turn... ";
+                            } else if (lastCommand === "left") {
+                                responseText.textContent = "Turning left... ";
+                            } else if (lastCommand === "right") {
+                                responseText.textContent = "Turning right... ";
+                            } else if (lastCommand === "forward") {
+                                responseText.textContent = "Moving forward... ";
+                            } else if (lastCommand === "stop") {
+                                responseText.textContent = "Stopping... ";
+                            }
+                            responseText.appendChild(statusIndicator);
+                        }
+                    }
+
+                    if (data.audio) {
+                        playAudio(data.audio);
+                    }
+
+                    if (data.error) {
+                        responseText.textContent = `Error: ${data.error} `;
+                        responseText.appendChild(statusIndicator);
+                    }
+
+                    setButtonsDisabled(false);
+                } catch (e) {
+                    console.error("Error parsing message:", e);
+                }
+            };
+
+            websocket.onclose = () => {
+                console.log("WebSocket closed. Reconnecting...");
+                setButtonsDisabled(true);
+                updateConnectionStatus(false);
+                responseText.textContent = "Reconnecting to Driver... ";
+                responseText.appendChild(statusIndicator);
+
+                // Exponential backoff for reconnection
+                const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 10000);
+                reconnectAttempts++;
+
+                setTimeout(connectWebSocket, delay);
+            };
+
+            websocket.onerror = (e) => {
+                console.error("WebSocket error:", e);
+                updateConnectionStatus(false);
+                responseText.textContent = "Driver connection failed! ";
+                responseText.appendChild(statusIndicator);
+            };
+        }
+
+        function base64ToBlob(base64, mimeType) {
+            const byteCharacters = atob(base64);
+            const byteArrays = [];
+
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+
+                const byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
+            }
+
+            return new Blob(byteArrays, { type: mimeType });
+        }
+
+        function playAudio(audioData) {
+            try {
+                // Extract the base64 data
+                const base64Data = audioData.split(',')[1];
+                // Convert to blob
+                const audioBlob = base64ToBlob(base64Data, 'audio/mp3');
+                // Create object URL
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                // Clean up previous audio
+                if (ttsPlayer.src && ttsPlayer.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(ttsPlayer.src);
+                }
+
+                // Set new audio source
+                ttsPlayer.src = audioUrl;
+                ttsPlayer.style.display = 'block';
+
+                // Play audio
+                ttsPlayer.play().catch(e => {
+                    console.error("TTS playback error:", e);
+                    ttsPlayer.style.display = 'none';
+                });
+
+                // Hide player after playback
+                ttsPlayer.onended = () => {
+                    ttsPlayer.style.display = 'none';
+                };
+            } catch (e) {
+                console.error("Audio processing error:", e);
+            }
+        }
+
+        async function sendCommand(command, parameters = {}) {
+            const currentTime = Date.now();
+
+            // Throttle commands to prevent flooding
+            if (currentTime - lastCommandTime < COMMAND_THROTTLE_TIME) {
+                console.log("Command throttled");
+                return;
+            }
+
+            lastCommandTime = currentTime;
+
+            if (websocket?.readyState === WebSocket.OPEN && !isProcessing) {
+                setButtonsDisabled(true);
+                if (command !== "autonomous") {
+                    responseText.textContent = "Driver is processing... ";
+                    responseText.appendChild(statusIndicator);
+                }
+
+                try {
+                    dingPlayer.play().catch(e => console.error("Ding error:", e));
+                } catch (e) {
+                    console.error("Audio error:", e);
+                }
+
+                websocket.send(JSON.stringify({ command, parameters }));
+            } else {
+                responseText.textContent = "Driver not connected or busy! ";
+                responseText.appendChild(statusIndicator);
+                setButtonsDisabled(false);
+            }
+        }
+
+        function startVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+                responseText.textContent = "Voice recognition not supported! ";
+                responseText.appendChild(statusIndicator);
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = "en-US";
+
+            recognition.onstart = () => {
+                recordingIndicator.classList.add("active");
+                responseText.textContent = "Driver is listening... ";
+                responseText.appendChild(statusIndicator);
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.trim();
+                responseText.textContent = `Heard: ${transcript} `;
+                responseText.appendChild(statusIndicator);
+                sendCommand("custom", { text: transcript });
+            };
+
+            recognition.onend = () => {
+                recordingIndicator.classList.remove("active");
+                recognition = null;
+                if (!isProcessing) {
+                    responseText.textContent = "Driver Ready! ";
+                    responseText.appendChild(statusIndicator);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                responseText.textContent = `Voice error: ${event.error} `;
+                responseText.appendChild(statusIndicator);
+                recordingIndicator.classList.remove("active");
+                recognition = null;
+            };
+
+            recognition.start();
+        }
+
+        // Add touch events for mobile devices
+        function addTouchEvents() {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('touchstart', function() {
+                    this.style.transform = 'scale(0.95)';
+                });
+
+                button.addEventListener('touchend', function() {
+                    this.style.transform = 'scale(1)';
+                });
+            });
+        }
+
+        autonomousButton.addEventListener("click", () => {
+            isAutonomousOn = !isAutonomousOn;
+            const message = {
+                command: "autonomous",
+                parameters: {
+                    mode: isAutonomousOn ? "on" : "off",
+                    text: "Navigate safely"
+                }
+            };
+            websocket.send(JSON.stringify(message));
+            autonomousButton.textContent = isAutonomousOn ? "🤖 Autonomous (ON)" : "🤖 Autonomous";
+            if (isAutonomousOn) {
+                responseText.textContent = "Autonomous mode active ";
+                responseText.appendChild(statusIndicator);
+            } else {
+                responseText.textContent = "Driver Ready! ";
+                responseText.appendChild(statusIndicator);
+            }
+        });
+
+        document.getElementById('describe-button').addEventListener('click', () => sendCommand("describe"));
+        document.getElementById('navigate-forward-button').addEventListener('click', () => sendCommand("forward"));
+        document.getElementById('navigate-backward-button').addEventListener('click', () => sendCommand("backward"));
+        document.getElementById('navigate-left-button').addEventListener('click', () => sendCommand("left"));
+        document.getElementById('navigate-right-button').addEventListener('click', () => sendCommand("right"));
+        document.getElementById('stop-button').addEventListener('click', () => sendCommand("stop"));
+        document.getElementById('voice-button').addEventListener('click', () => {
+            if (recognition) recognition.stop();
+            else startVoiceRecognition();
+        });
+        document.getElementById('custom-command-button').addEventListener('click', () => {
+            const command = document.getElementById('custom-command-input').value.trim();
+            if (command) sendCommand("custom", { text: command });
+        });
+
+        // Allow Enter key to submit custom commands
+        document.getElementById('custom-command-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const command = document.getElementById('custom-command-input').value.trim();
+                if (command) {
+                    sendCommand("custom", { text: command });
+                    document.getElementById('custom-command-input').value = '';
+                }
+            }
+        });
+
+        // Add touch events for mobile
+        addTouchEvents();
+
+        // Initialize connection
+        connectWebSocket();
+
+        // Reconnect if page visibility changes (user switches back to tab)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' &&
+                (!websocket || websocket.readyState !== WebSocket.OPEN)) {
+                connectWebSocket();
+            }
+        });
+    </script>
+</body>
+</html>
