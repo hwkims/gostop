@@ -1,4 +1,6 @@
 ![image](https://github.com/user-attachments/assets/abfc0341-2bb6-40d5-900c-0b99c6ee93a1)
+![image](https://github.com/user-attachments/assets/200b5d56-9b72-4bd5-9ffc-25c16592a8c5)
+
 # 🚦 GoStop - 이미지 기반 직진/정지 판단 보조 도구
 
 이 프로젝트는 [Streamlit](https://streamlit.io/)으로 구축된 간단한 웹 애플리케이션으로, 로컬에서 실행 중인 [Ollama](https://ollama.com/) 인스턴스와 `granite3.2-vision` 모델을 사용하여 업로드된 이미지를 분석합니다. 분석 결과를 바탕으로 해당 이미지가 '직진(Go)'해야 할 상황인지 '정지(Stop)'해야 할 상황인지를 판단하는 데 도움을 주는 것을 목표로 합니다.
