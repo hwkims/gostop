@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bumblebee - 이미지 설명 및 대화</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+       body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            background-color: #f7f9fc;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 500px;
+            width: 90%;
+            padding: 30px;
+            background-color: white;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #4e89f2;
+            font-size: 2.5em;
+            margin-bottom: 0.7em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        h1 span {
+          margin-right: 10px;
+        }
+        #webcam-section {
+            position: relative;
+            margin-bottom: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        #webcam-feed {
+            width: 100%;
+            display: block;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            border-radius: 15px;
+            z-index: 10;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #4e89f2;
+            border-radius: 50%;
+            animation: spin 1.5s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+       .input-group textarea {
+            width: 100%; /* Full width */
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            background-color: #f0f4f8;
+            color: #333;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+      }
+        #prompt-input:focus {
+            outline: none;
+            background-color: #e8eef4;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        #capture-button, #submit-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #4e89f2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+
+        }
+
+        #capture-button:hover, #submit-button:hover {
+            background-color: #357ae8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 음성 입력 버튼 */
+        #voice-input-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #2ecc71; /* Green */
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 15px;
+        }
+
+        #voice-input-button:hover {
+            background-color: #27ae60; /* Darker green */
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+      #response-text {
+          margin-top: 25px;
+          padding: 20px;
+          background-color: #f0f4f8;
+          border-radius: 15px;
+          min-height: 80px;
+          text-align: left;
+          box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+          line-height: 1.6;
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.5s ease, transform 0.5s ease;
+      }
+
+      #response-text.show {
+          opacity: 1;
+          transform: translateY(0);
+      }
+       /* JSON 출력 스타일 */
+      #response-text pre {
+          white-space: pre-wrap;
+          word-wrap: break-word;
+      }
+
+      .json-key {
+          color: #4e89f2;
+          font-weight: bold;
+      }
+
+      .json-value {
+          color: #333;
+      }
+        #audio-player{
+            width: 100%;
+            margin-top: 20px;
+            display: none; /* Initially hide */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span>🐝</span> Bumblebee</h1>
+
+        <section id="webcam-section">
+            <div class="loading-overlay">
+                <div class="loading-spinner"></div>
+            </div>
+            <video id="webcam-feed" autoplay playsinline></video>
+        </section>
+      <!-- 음성 입력 버튼 -->
+      <button id="voice-input-button">Start Listening</button>
+
+      <div class="input-group">
+        <textarea id="prompt-input" placeholder="Enter prompt (e.g., Describe this image)"></textarea>
+      </div>
+      <button id="submit-button">Submit Prompt</button>
+      <button id="capture-button">Capture Image</button>
+
+        <div id="response-text"></div>
+        <audio id="audio-player" controls></audio>
+    </div>
+
+    <script>
+      const webcamFeed = document.getElementById('webcam-feed');
+      const captureButton = document.getElementById('capture-button');
+      const promptInput = document.getElementById('prompt-input');
+      const submitButton = document.getElementById('submit-button');
+      const responseText = document.getElementById('response-text');
+      const audioPlayer = document.getElementById('audio-player');
+      const loadingOverlay = document.querySelector('.loading-overlay');
+      const voiceInputButton = document.getElementById('voice-input-button');
+
+      let recognition;
+      let isRecognizing = false;
+      let imageForPrompt = null; // Store image data for "범블비" prompt
+
+       // 브라우저 SpeechRecognition API 초기화
+        function initSpeechRecognition() {
+            window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!window.SpeechRecognition) {
+                alert("Your browser does not support Speech Recognition.");
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true; // Continuous listening
+            recognition.interimResults = true; // 중간 결과 반환
+            recognition.lang = 'ko-KR';
+
+            recognition.onstart = () => {
+                isRecognizing = true;
+                voiceInputButton.textContent = "Stop Listening";
+                voiceInputButton.style.backgroundColor = "#e74c3c"; // Red
+            };
+
+            recognition.onresult = (event) => {
+              let finalTranscript = '';
+              // let interimTranscript = ''; // 중간 결과는 무시
+
+              for (let i = event.resultIndex; i < event.results.length; ++i) {
+                  if (event.results[i].isFinal) {
+                      finalTranscript += event.results[i][0].transcript;
+                  }
+                //   else { // 중간 결과는 무시
+                //      interimTranscript += event.results[i][0].transcript;
+                //   }
+              }
+
+                if (finalTranscript.trim().toLowerCase().startsWith("범블비")) {
+                    let prompt = finalTranscript.replace(/범블비/i, "").trim(); // Remove "범블비"
+
+                    if (prompt.toLowerCase().startsWith("앞에 뭐가 있어")) { //"앞에 뭐가 있어?"
+                        captureImageForPrompt().then(imageData => {
+                            sendData(imageData, prompt);
+                        });
+                    } else { //  "범블비"가  들어간  다른  명령
+                        sendData(null, prompt); //  이미지 없이
+                    }
+                }
+            };
+
+            recognition.onend = () => {
+                isRecognizing = false;
+                voiceInputButton.textContent = "Start Listening";
+                voiceInputButton.style.backgroundColor = "#2ecc71"; // Green
+
+                //  Stop  listening  후에  다시  start  (무한  루프)
+                if (!isRecognizing) { //  Avoid  multiple  starts
+                    recognition.start();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                alert("Speech recognition error: " + event.error);
+            };
+        }
+
+        //  "범블비, 앞에 뭐가 있어?"  명령을  위한  이미지  캡처  함수
+        async function captureImageForPrompt() {
+            const canvas = document.createElement('canvas');
+            canvas.width = webcamFeed.videoWidth;
+            canvas.height = webcamFeed.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(webcamFeed, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL('image/jpeg');
+            return imageData;
+        }
+
+      // 웹캠 시작
+      async function startWebcam() {
+          try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+              webcamFeed.srcObject = stream;
+          } catch (error) {
+              console.error("웹캠 접근 오류:", error);
+              alert("웹캠 접근 오류: " + error.message);
+          }
+      }
+
+      // 이미지 캡처
+      async function captureAndSendData() {
+          const canvas = document.createElement('canvas');
+          canvas.width = webcamFeed.videoWidth;
+          canvas.height = webcamFeed.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(webcamFeed, 0, 0, canvas.width, canvas.height);
+          const imageData = canvas.toDataURL('image/jpeg');
+          const prompt = promptInput.value.trim() || "이 이미지를 설명해줘";
+          sendData(imageData, prompt);
+      }
+
+      // 텍스트 프롬프트 데이터 전송
+      async function sendPromptData() {
+          const prompt = promptInput.value.trim();
+          if (!prompt) {
+              alert("Please enter a prompt.");
+              return;
+          }
+          sendData(null, prompt);
+      }
+
+      // 데이터 전송
+      async function sendData(imageData, prompt) {
+        showLoading();
+        try {
+          const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, image: imageData }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `HTTP error ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (data.error) {
+            displayError(data.error);
+          } else {
+             displayResponse(data);
+
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          displayError(error.message);
+        } finally {
+          hideLoading();
+        }
+      }
+
+    // Base64를 오디오 데이터 URL로 변환하는 함수
+    function base64ToAudioUrl(base64Data) {
+      return `data:audio/mpeg;base64,${base64Data}`;
+    }
+
+      // JSON 형식으로 응답 표시 + TTS
+      function displayResponse(data) {
+        let formattedResponse = "<pre>";
+
+        for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+              if(key === 'tts_data') continue;
+                formattedResponse += `<span class="json-key">${key}:</span> `;
+                if (typeof data[key] === 'object' && data[key] !== null) {
+                    formattedResponse += '{<br>';
+                    for (const subKey in data[key]) {
+                        formattedResponse += `  <span class="json-key">${subKey}:</span> <span class="json-value">${JSON.stringify(data[key][subKey])}</span>,<br>`;
+                    }
+                    formattedResponse += '}';
+                } else {
+                    formattedResponse += `<span class="json-value">${JSON.stringify(data[key])}</span>,<br>`;
+                }
+            }
+        }
+        formattedResponse += "</pre>";
+        responseText.innerHTML = formattedResponse;
+        responseText.classList.add('show');
+
+        // TTS 데이터가 있으면 오디오 플레이어 표시 및 자동 재생
+        if (data.tts_data) {
+          audioPlayer.src = base64ToAudioUrl(data.tts_data);
+          audioPlayer.style.display = 'block';
+          audioPlayer.play().catch(e => console.error("Audio play failed:", e));
+        } else {
+          audioPlayer.style.display = 'none';
+        }
+      }
+
+      // 오류 표시
+      function displayError(message) {
+         responseText.innerHTML = `<pre><span class="json-key">Error:</span> <span class="json-value">"${message}"</span></pre>`;
+         responseText.classList.add('show');
+      }
+
+      function showLoading() {
+        loadingOverlay.style.display = 'flex';
+      }
+
+      function hideLoading() {
+        loadingOverlay.style.display = 'none';
+      }
+
+      // 이벤트 리스너
+      document.addEventListener('DOMContentLoaded', () => {
+        startWebcam();
+        initSpeechRecognition(); // 음성인식 초기화
+        captureButton.addEventListener('click', captureAndSendData);
+        submitButton.addEventListener('click', sendPromptData);
+
+        // 음성 입력 버튼 이벤트
+        voiceInputButton.addEventListener('click', () => {
+            if (isRecognizing) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        });
+
+        // 페이지 로드 시 기본 프롬프트 설정
+        promptInput.value = "이 이미지를 설명해줘";
+
+      });
+    </script>
+</body>
+</html>
